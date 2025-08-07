@@ -34,6 +34,9 @@
 #define LANGSTANDARD_ALIAS_DEPR(IDENT, ALIAS) LANGSTANDARD_ALIAS(IDENT, ALIAS)
 #endif
 
+LANGSTANDARD(mc, "mc",
+             MC, "Matt-C", 0)
+
 // C89-ish modes.
 LANGSTANDARD(c89, "c89",
              C, "ISO C 1990", 0)

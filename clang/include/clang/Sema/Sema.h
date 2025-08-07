@@ -11118,6 +11118,8 @@ public:
                                      NamedReturnInfo &NRInfo,
                                      bool SupressSimplerImplicitMoves);
 
+  StmtResult ActOnDeferStmt(SourceLocation DeferLoc, Stmt *DeferredStmt);
+
   /// ActOnCXXCatchBlock - Takes an exception declaration and a handler block
   /// and creates a proper catch handler from them.
   StmtResult ActOnCXXCatchBlock(SourceLocation CatchLoc, Decl *ExDecl,

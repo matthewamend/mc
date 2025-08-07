@@ -29,92 +29,91 @@ using namespace clang;
 
 namespace clang {
 
-  class ASTStmtWriter : public StmtVisitor<ASTStmtWriter, void> {
-    ASTWriter &Writer;
-    ASTRecordWriter Record;
+class ASTStmtWriter : public StmtVisitor<ASTStmtWriter, void> {
+  ASTWriter &Writer;
+  ASTRecordWriter Record;
 
-    serialization::StmtCode Code;
-    unsigned AbbrevToUse;
+  serialization::StmtCode Code;
+  unsigned AbbrevToUse;
 
-    /// A helper that can help us to write a packed bit across function
-    /// calls. For example, we may write separate bits in separate functions:
-    ///
-    ///  void VisitA(A* a) {
-    ///     Record.push_back(a->isSomething());
-    ///  }
-    ///
-    ///  void Visitb(B *b) {
-    ///     VisitA(b);
-    ///     Record.push_back(b->isAnother());
-    ///  }
-    ///
-    /// In such cases, it'll be better if we can pack these 2 bits. We achieve
-    /// this by writing a zero value in `VisitA` and recorded that first and add
-    /// the new bit to the recorded value.
-    class PakedBitsWriter {
-    public:
-      PakedBitsWriter(ASTRecordWriter &Record) : RecordRef(Record) {}
-      ~PakedBitsWriter() { assert(!CurrentIndex); }
-
-      void addBit(bool Value) {
-        assert(CurrentIndex && "Writing Bits without recording first!");
-        PackingBits.addBit(Value);
-      }
-      void addBits(uint32_t Value, uint32_t BitsWidth) {
-        assert(CurrentIndex && "Writing Bits without recording first!");
-        PackingBits.addBits(Value, BitsWidth);
-      }
-
-      void writeBits() {
-        if (!CurrentIndex)
-          return;
-
-        RecordRef[*CurrentIndex] = (uint32_t)PackingBits;
-        CurrentIndex = std::nullopt;
-        PackingBits.reset(0);
-      }
-
-      void updateBits() {
-        writeBits();
-
-        CurrentIndex = RecordRef.size();
-        RecordRef.push_back(0);
-      }
-
-    private:
-      BitsPacker PackingBits;
-      ASTRecordWriter &RecordRef;
-      std::optional<unsigned> CurrentIndex;
-    };
-
-    PakedBitsWriter CurrentPackingBits;
-
+  /// A helper that can help us to write a packed bit across function
+  /// calls. For example, we may write separate bits in separate functions:
+  ///
+  ///  void VisitA(A* a) {
+  ///     Record.push_back(a->isSomething());
+  ///  }
+  ///
+  ///  void Visitb(B *b) {
+  ///     VisitA(b);
+  ///     Record.push_back(b->isAnother());
+  ///  }
+  ///
+  /// In such cases, it'll be better if we can pack these 2 bits. We achieve
+  /// this by writing a zero value in `VisitA` and recorded that first and add
+  /// the new bit to the recorded value.
+  class PakedBitsWriter {
   public:
-    ASTStmtWriter(ASTContext &Context, ASTWriter &Writer,
-                  ASTWriter::RecordData &Record)
-        : Writer(Writer), Record(Context, Writer, Record),
-          Code(serialization::STMT_NULL_PTR), AbbrevToUse(0),
-          CurrentPackingBits(this->Record) {}
+    PakedBitsWriter(ASTRecordWriter &Record) : RecordRef(Record) {}
+    ~PakedBitsWriter() { assert(!CurrentIndex); }
 
-    ASTStmtWriter(const ASTStmtWriter&) = delete;
-    ASTStmtWriter &operator=(const ASTStmtWriter &) = delete;
-
-    uint64_t Emit() {
-      CurrentPackingBits.writeBits();
-      assert(Code != serialization::STMT_NULL_PTR &&
-             "unhandled sub-statement writing AST file");
-      return Record.EmitStmt(Code, AbbrevToUse);
+    void addBit(bool Value) {
+      assert(CurrentIndex && "Writing Bits without recording first!");
+      PackingBits.addBit(Value);
+    }
+    void addBits(uint32_t Value, uint32_t BitsWidth) {
+      assert(CurrentIndex && "Writing Bits without recording first!");
+      PackingBits.addBits(Value, BitsWidth);
     }
 
-    void AddTemplateKWAndArgsInfo(const ASTTemplateKWAndArgsInfo &ArgInfo,
-                                  const TemplateArgumentLoc *Args);
+    void writeBits() {
+      if (!CurrentIndex)
+        return;
 
-    void VisitStmt(Stmt *S);
-#define STMT(Type, Base) \
-    void Visit##Type(Type *);
-#include "clang/AST/StmtNodes.inc"
+      RecordRef[*CurrentIndex] = (uint32_t)PackingBits;
+      CurrentIndex = std::nullopt;
+      PackingBits.reset(0);
+    }
+
+    void updateBits() {
+      writeBits();
+
+      CurrentIndex = RecordRef.size();
+      RecordRef.push_back(0);
+    }
+
+  private:
+    BitsPacker PackingBits;
+    ASTRecordWriter &RecordRef;
+    std::optional<unsigned> CurrentIndex;
   };
-}
+
+  PakedBitsWriter CurrentPackingBits;
+
+public:
+  ASTStmtWriter(ASTContext &Context, ASTWriter &Writer,
+                ASTWriter::RecordData &Record)
+      : Writer(Writer), Record(Context, Writer, Record),
+        Code(serialization::STMT_NULL_PTR), AbbrevToUse(0),
+        CurrentPackingBits(this->Record) {}
+
+  ASTStmtWriter(const ASTStmtWriter &) = delete;
+  ASTStmtWriter &operator=(const ASTStmtWriter &) = delete;
+
+  uint64_t Emit() {
+    CurrentPackingBits.writeBits();
+    assert(Code != serialization::STMT_NULL_PTR &&
+           "unhandled sub-statement writing AST file");
+    return Record.EmitStmt(Code, AbbrevToUse);
+  }
+
+  void AddTemplateKWAndArgsInfo(const ASTTemplateKWAndArgsInfo &ArgInfo,
+                                const TemplateArgumentLoc *Args);
+
+  void VisitStmt(Stmt *S);
+#define STMT(Type, Base) void Visit##Type(Type *);
+#include "clang/AST/StmtNodes.inc"
+};
+} // namespace clang
 
 void ASTStmtWriter::AddTemplateKWAndArgsInfo(
     const ASTTemplateKWAndArgsInfo &ArgInfo, const TemplateArgumentLoc *Args) {
@@ -125,8 +124,7 @@ void ASTStmtWriter::AddTemplateKWAndArgsInfo(
     Record.AddTemplateArgumentLoc(Args[i]);
 }
 
-void ASTStmtWriter::VisitStmt(Stmt *S) {
-}
+void ASTStmtWriter::VisitStmt(Stmt *S) {}
 
 void ASTStmtWriter::VisitNullStmt(NullStmt *S) {
   VisitStmt(S);
@@ -422,6 +420,13 @@ void ASTStmtWriter::VisitMSAsmStmt(MSAsmStmt *S) {
   Code = serialization::STMT_MSASM;
 }
 
+void ASTStmtWriter::VisitDeferStmt(DeferStmt *S) {
+  VisitStmt(S);
+  Record.AddSourceLocation(S->getBeginLoc());
+  Record.AddStmt(S->getDeferredStmt());
+  Code = serialization::STMT_DEFER;
+}
+
 void ASTStmtWriter::VisitCoroutineBodyStmt(CoroutineBodyStmt *CoroStmt) {
   VisitStmt(CoroStmt);
   Record.push_back(CoroStmt->getParamMoves().size());
@@ -487,8 +492,7 @@ addConstraintSatisfaction(ASTRecordWriter &Record,
   }
 }
 
-static void
-addSubstitutionDiagnostic(
+static void addSubstitutionDiagnostic(
     ASTRecordWriter &Record,
     const concepts::Requirement::SubstitutionDiagnostic *D) {
   Record.AddString(D->SubstitutedEntity);
@@ -497,7 +501,7 @@ addSubstitutionDiagnostic(
 }
 
 void ASTStmtWriter::VisitConceptSpecializationExpr(
-        ConceptSpecializationExpr *E) {
+    ConceptSpecializationExpr *E) {
   VisitExpr(E);
   Record.AddDeclRef(E->getSpecializationDecl());
   const ConceptReference *CR = E->getConceptReference();
@@ -575,7 +579,6 @@ void ASTStmtWriter::VisitRequiresExpr(RequiresExpr *E) {
 
   Code = serialization::EXPR_REQUIRES;
 }
-
 
 void ASTStmtWriter::VisitCapturedStmt(CapturedStmt *S) {
   VisitStmt(S);
@@ -1038,8 +1041,8 @@ void ASTStmtWriter::VisitObjCIsaExpr(ObjCIsaExpr *E) {
   Code = serialization::EXPR_OBJC_ISA;
 }
 
-void ASTStmtWriter::
-VisitObjCIndirectCopyRestoreExpr(ObjCIndirectCopyRestoreExpr *E) {
+void ASTStmtWriter::VisitObjCIndirectCopyRestoreExpr(
+    ObjCIndirectCopyRestoreExpr *E) {
   VisitExpr(E);
   Record.AddStmt(E->getSubExpr());
   Record.push_back(E->shouldCopy());
@@ -1064,8 +1067,8 @@ void ASTStmtWriter::VisitCastExpr(CastExpr *E) {
   CurrentPackingBits.addBit(E->hasStoredFPFeatures());
   Record.AddStmt(E->getSubExpr());
 
-  for (CastExpr::path_iterator
-         PI = E->path_begin(), PE = E->path_end(); PI != PE; ++PI)
+  for (CastExpr::path_iterator PI = E->path_begin(), PE = E->path_end();
+       PI != PE; ++PI)
     Record.AddCXXBaseSpecifier(**PI);
 
   if (E->hasStoredFPFeatures())
@@ -1117,8 +1120,8 @@ void ASTStmtWriter::VisitConditionalOperator(ConditionalOperator *E) {
   Code = serialization::EXPR_CONDITIONAL_OPERATOR;
 }
 
-void
-ASTStmtWriter::VisitBinaryConditionalOperator(BinaryConditionalOperator *E) {
+void ASTStmtWriter::VisitBinaryConditionalOperator(
+    BinaryConditionalOperator *E) {
   VisitExpr(E);
   Record.AddStmt(E->getOpaqueValue());
   Record.AddStmt(E->getCommon());
@@ -1388,8 +1391,9 @@ void ASTStmtWriter::VisitPseudoObjectExpr(PseudoObjectExpr *E) {
   Record.push_back(result);
 
   Record.AddStmt(E->getSyntacticForm());
-  for (PseudoObjectExpr::semantics_iterator
-         i = E->semantics_begin(), e = E->semantics_end(); i != e; ++i) {
+  for (PseudoObjectExpr::semantics_iterator i = E->semantics_begin(),
+                                            e = E->semantics_end();
+       i != e; ++i) {
     Record.AddStmt(*i);
   }
   Code = serialization::EXPR_PSEUDO_OBJECT;
@@ -1643,7 +1647,8 @@ void ASTStmtWriter::VisitObjCBoolLiteralExpr(ObjCBoolLiteralExpr *E) {
   Code = serialization::EXPR_OBJC_BOOL_LITERAL;
 }
 
-void ASTStmtWriter::VisitObjCAvailabilityCheckExpr(ObjCAvailabilityCheckExpr *E) {
+void ASTStmtWriter::VisitObjCAvailabilityCheckExpr(
+    ObjCAvailabilityCheckExpr *E) {
   VisitExpr(E);
   Record.AddSourceRange(E->getSourceRange());
   Record.AddVersionTuple(E->getVersion());
@@ -1776,7 +1781,7 @@ void ASTStmtWriter::VisitLambdaExpr(LambdaExpr *E) {
 
   // Add capture initializers.
   for (LambdaExpr::capture_init_iterator C = E->capture_init_begin(),
-                                      CEnd = E->capture_init_end();
+                                         CEnd = E->capture_init_end();
        C != CEnd; ++C) {
     Record.AddStmt(*C);
   }
@@ -1787,7 +1792,8 @@ void ASTStmtWriter::VisitLambdaExpr(LambdaExpr *E) {
   Code = serialization::EXPR_LAMBDA;
 }
 
-void ASTStmtWriter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
+void ASTStmtWriter::VisitCXXStdInitializerListExpr(
+    CXXStdInitializerListExpr *E) {
   VisitExpr(E);
   Record.AddStmt(E->getSubExpr());
   Code = serialization::EXPR_CXX_STD_INITIALIZER_LIST;
@@ -2042,8 +2048,8 @@ void ASTStmtWriter::VisitCXXDependentScopeMemberExpr(
   Code = serialization::EXPR_CXX_DEPENDENT_SCOPE_MEMBER;
 }
 
-void
-ASTStmtWriter::VisitDependentScopeDeclRefExpr(DependentScopeDeclRefExpr *E) {
+void ASTStmtWriter::VisitDependentScopeDeclRefExpr(
+    DependentScopeDeclRefExpr *E) {
   VisitExpr(E);
 
   // Don't emit anything here, HasTemplateKWAndArgsInfo must be
@@ -2065,12 +2071,13 @@ ASTStmtWriter::VisitDependentScopeDeclRefExpr(DependentScopeDeclRefExpr *E) {
   Code = serialization::EXPR_CXX_DEPENDENT_SCOPE_DECL_REF;
 }
 
-void
-ASTStmtWriter::VisitCXXUnresolvedConstructExpr(CXXUnresolvedConstructExpr *E) {
+void ASTStmtWriter::VisitCXXUnresolvedConstructExpr(
+    CXXUnresolvedConstructExpr *E) {
   VisitExpr(E);
   Record.push_back(E->getNumArgs());
-  for (CXXUnresolvedConstructExpr::arg_iterator
-         ArgI = E->arg_begin(), ArgE = E->arg_end(); ArgI != ArgE; ++ArgI)
+  for (CXXUnresolvedConstructExpr::arg_iterator ArgI = E->arg_begin(),
+                                                ArgE = E->arg_end();
+       ArgI != ArgE; ++ArgI)
     Record.AddStmt(*ArgI);
   Record.AddTypeSourceInfo(E->getTypeSourceInfo());
   Record.AddSourceLocation(E->getLParenLoc());
@@ -2224,7 +2231,7 @@ void ASTStmtWriter::VisitPackIndexingExpr(PackIndexingExpr *E) {
 }
 
 void ASTStmtWriter::VisitSubstNonTypeTemplateParmExpr(
-                                              SubstNonTypeTemplateParmExpr *E) {
+    SubstNonTypeTemplateParmExpr *E) {
   VisitExpr(E);
   Record.AddDeclRef(E->getAssociatedDecl());
   CurrentPackingBits.addBit(E->isReferenceParameter());
@@ -2238,7 +2245,7 @@ void ASTStmtWriter::VisitSubstNonTypeTemplateParmExpr(
 }
 
 void ASTStmtWriter::VisitSubstNonTypeTemplateParmPackExpr(
-                                          SubstNonTypeTemplateParmPackExpr *E) {
+    SubstNonTypeTemplateParmPackExpr *E) {
   VisitExpr(E);
   Record.AddDeclRef(E->getAssociatedDecl());
   CurrentPackingBits.addBit(E->getFinal());
@@ -2253,8 +2260,8 @@ void ASTStmtWriter::VisitFunctionParmPackExpr(FunctionParmPackExpr *E) {
   Record.push_back(E->getNumExpansions());
   Record.AddDeclRef(E->getParameterPack());
   Record.AddSourceLocation(E->getParameterPackLocation());
-  for (FunctionParmPackExpr::iterator I = E->begin(), End = E->end();
-       I != End; ++I)
+  for (FunctionParmPackExpr::iterator I = E->begin(), End = E->end(); I != End;
+       ++I)
     Record.AddDeclRef(*I);
   Code = serialization::EXPR_FUNCTION_PARM_PACK;
 }
@@ -3003,7 +3010,7 @@ void ASTStmtWriter::VisitOpenACCWaitConstruct(OpenACCWaitConstruct *S) {
   Record.AddSourceLocation(S->RParenLoc);
   Record.AddSourceLocation(S->QueuesLoc);
 
-  for(Expr *E : S->getExprs())
+  for (Expr *E : S->getExprs())
     Record.AddStmt(E);
 
   Code = serialization::STMT_OPENACC_WAIT_CONSTRUCT;
@@ -3059,9 +3066,7 @@ unsigned ASTWriter::getSwitchCaseID(SwitchCase *S) {
   return SwitchCaseIDs[S];
 }
 
-void ASTWriter::ClearSwitchCaseIDs() {
-  SwitchCaseIDs.clear();
-}
+void ASTWriter::ClearSwitchCaseIDs() { SwitchCaseIDs.clear(); }
 
 /// Write the given substatement or subexpression to the
 /// bitstream.
@@ -3090,12 +3095,10 @@ void ASTWriter::WriteSubStmt(ASTContext &Context, Stmt *S) {
     llvm::DenseSet<Stmt *> &ParentStmts;
 
     ParentStmtInserterRAII(Stmt *S, llvm::DenseSet<Stmt *> &ParentStmts)
-      : S(S), ParentStmts(ParentStmts) {
+        : S(S), ParentStmts(ParentStmts) {
       ParentStmts.insert(S);
     }
-    ~ParentStmtInserterRAII() {
-      ParentStmts.erase(S);
-    }
+    ~ParentStmtInserterRAII() { ParentStmts.erase(S); }
   };
 
   ParentStmtInserterRAII ParentStmtInserter(S, ParentStmts);
@@ -3112,8 +3115,10 @@ void ASTWriter::WriteSubStmt(ASTContext &Context, Stmt *S) {
 void ASTRecordWriter::FlushStmts() {
   // We expect to be the only consumer of the two temporary statement maps,
   // assert that they are empty.
-  assert(Writer->SubStmtEntries.empty() && "unexpected entries in sub-stmt map");
-  assert(Writer->ParentStmts.empty() && "unexpected entries in parent stmt map");
+  assert(Writer->SubStmtEntries.empty() &&
+         "unexpected entries in sub-stmt map");
+  assert(Writer->ParentStmts.empty() &&
+         "unexpected entries in parent stmt map");
 
   for (unsigned I = 0, N = StmtsToEmit.size(); I != N; ++I) {
     Writer->WriteSubStmt(getASTContext(), StmtsToEmit[I]);

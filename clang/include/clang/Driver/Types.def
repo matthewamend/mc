@@ -34,6 +34,13 @@
 // Most of the options in Flags have been removed in favor of subsuming their
 // meaning from the phases list.
 
+
+TYPE("mc-output",                PP_MC,        INVALID,          "mi",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("mc",                       MC,           PP_MC,            "mc",    phases::Preprocess, phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+
+TYPE("mc-header-cpp-output",      PP_MCHeader, INVALID,         "mi",      phases::Precompile)
+TYPE("mc-header",                 MCHeader,    PP_MCHeader,     "mh",      phases::Preprocess, phases::Precompile)
+
 // C family source language (with and without preprocessing).
 TYPE("cpp-output",               PP_C,         INVALID,         "i",      phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("c",                        C,            PP_C,            "c",      phases::Preprocess, phases::Compile, phases::Backend, phases::Assemble, phases::Link)

@@ -1621,6 +1621,9 @@ enum StmtCode {
   /// A MS-style AsmStmt record.
   STMT_MSASM,
 
+  /// A DeferStmt record
+  STMT_DEFER,
+
   /// A constant expression context.
   EXPR_CONSTANT,
 

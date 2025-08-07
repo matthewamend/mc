@@ -32,6 +32,7 @@ enum class Language : uint8_t {
   LLVM_IR,
 
   ///@{ Languages that the frontend can parse and compile.
+  MC,
   C,
   CXX,
   ObjC,
@@ -63,15 +64,15 @@ enum LangFeatures {
   GNUMode = (1 << 14),
   HexFloat = (1 << 15),
   OpenCL = (1 << 16),
-  HLSL = (1 << 17)
+  HLSL = (1 << 17),
+  MC = (1 << 18)
 };
 
 /// LangStandard - Information about the properties of a particular language
 /// standard.
 struct LangStandard {
   enum Kind {
-#define LANGSTANDARD(id, name, lang, desc, features) \
-    lang_##id,
+#define LANGSTANDARD(id, name, lang, desc, features) lang_##id,
 #include "clang/Basic/LangStandards.def"
     lang_unspecified
   };
@@ -93,6 +94,8 @@ public:
 
   /// Language supports '//' comments.
   bool hasLineComments() const { return Flags & LineComment; }
+
+  bool isMC() const { return Flags & MC; }
 
   /// isC99 - Language is a superset of C99.
   bool isC99() const { return Flags & C99; }
@@ -158,6 +161,6 @@ public:
 LangStandard::Kind getDefaultLanguageStandard(clang::Language Lang,
                                               const llvm::Triple &T);
 
-}  // end namespace clang
+} // end namespace clang
 
 #endif

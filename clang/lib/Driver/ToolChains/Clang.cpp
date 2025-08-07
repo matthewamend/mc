@@ -6374,7 +6374,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // doesn't match. For the time being just ignore this for C++ inputs;
     // eventually we want to do all the standard defaulting here instead of
     // splitting it between the driver and clang -cc1.
-    if (!types::isCXX(InputType)) {
+    if (!types::isCXX(InputType) && !types::isMC(InputType)) {
       if (!Args.hasArg(options::OPT__SLASH_std)) {
         Args.AddAllArgsTranslated(CmdArgs, options::OPT_std_default_EQ, "-std=",
                                   /*Joined=*/true);

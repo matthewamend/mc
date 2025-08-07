@@ -1117,6 +1117,7 @@ void PrintPreprocessedAction::ExecuteAction() {
 
 void PrintPreambleAction::ExecuteAction() {
   switch (getCurrentFileKind().getLanguage()) {
+  case Language::MC:
   case Language::C:
   case Language::CXX:
   case Language::ObjC:

@@ -107,7 +107,7 @@ bool types::canTypeBeUserSpecified(ID Id) {
       TY_Plist,         TY_RewrittenObjC, TY_RewrittenLegacyObjC,
       TY_Remap,         TY_PCH,           TY_Object,
       TY_Image,         TY_dSYM,          TY_Dependencies,
-      TY_CUDA_FATBIN,   TY_HIP_FATBIN};
+      TY_CUDA_FATBIN,   TY_HIP_FATBIN,    TY_MCHeader};
   return !llvm::is_contained(kStaticLangageTypes, Id);
 }
 
@@ -129,6 +129,8 @@ bool types::isAcceptedByClang(ID Id) {
     return false;
 
   case TY_Asm:
+  case TY_MC: case TY_PP_MC:
+  case TY_MCHeader: case TY_PP_MCHeader:
   case TY_C: case TY_PP_C:
   case TY_CL: case TY_PP_CL: case TY_CLCXX: case TY_PP_CLCXX:
   case TY_CUDA: case TY_PP_CUDA:
@@ -178,6 +180,10 @@ bool types::isDerivedFromC(ID Id) {
   default:
     return false;
 
+  case TY_PP_MC:
+  case TY_MC:
+  case TY_PP_MCHeader:
+  case TY_MCHeader:
   case TY_PP_C:
   case TY_C:
   case TY_CL:
@@ -209,6 +215,16 @@ bool types::isDerivedFromC(ID Id) {
   case TY_ObjCXXHeader:
   case TY_CXXModule:
   case TY_PP_CXXModule:
+    return true;
+  }
+}
+
+bool types::isMC(ID Id) {
+  switch (Id) {
+  default:
+    return false;
+  case TY_PP_MC: case TY_MC:
+  case TY_PP_MCHeader: case TY_MCHeader:
     return true;
   }
 }
@@ -308,6 +324,11 @@ bool types::isSrcFile(ID Id) {
 
 types::ID types::lookupTypeForExtension(llvm::StringRef Ext) {
   return llvm::StringSwitch<types::ID>(Ext)
+      .Case("mc", TY_MC)
+      .Case("mh", TY_MCHeader)
+      .Case("mci", TY_PP_MC)
+      .Case("mhi", TY_PP_MCHeader)
+
       .Case("c", TY_C)
       .Case("C", TY_CXX)
       .Case("F", TY_Fortran)
@@ -431,6 +452,8 @@ ID types::lookupHeaderTypeForSourceType(ID Id) {
     return Id;
 
   // FIXME: Handle preprocessed input types.
+  case types::TY_MC:
+    return types::TY_MCHeader;
   case types::TY_C:
     return types::TY_CHeader;
   case types::TY_CXX:

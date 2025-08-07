@@ -51,7 +51,7 @@ using namespace clang;
 #define STMT(CLASS, PARENT)
 #define STMT_RANGE(BASE, FIRST, LAST)
 #define LAST_STMT_RANGE(BASE, FIRST, LAST)                                     \
-  static_assert(llvm::isUInt<NumStmtBits>(Stmt::StmtClass::LAST##Class),             \
+  static_assert(llvm::isUInt<NumStmtBits>(Stmt::StmtClass::LAST##Class),       \
                 "The number of 'StmtClass'es is strictly bound "               \
                 "by a bitfield of width NumStmtBits");
 #define ABSTRACT_STMT(STMT)
@@ -61,7 +61,7 @@ static struct StmtClassNameTable {
   const char *Name;
   unsigned Counter;
   unsigned Size;
-} StmtClassInfo[Stmt::lastStmtConstant+1];
+} StmtClassInfo[Stmt::lastStmtConstant + 1];
 
 static StmtClassNameTable &getStmtInfoTableEntry(Stmt::StmtClass E) {
   static bool Initialized = false;
@@ -71,28 +71,28 @@ static StmtClassNameTable &getStmtInfoTableEntry(Stmt::StmtClass E) {
   // Initialize the table on the first use.
   Initialized = true;
 #define ABSTRACT_STMT(STMT)
-#define STMT(CLASS, PARENT) \
-  StmtClassInfo[(unsigned)Stmt::CLASS##Class].Name = #CLASS;    \
+#define STMT(CLASS, PARENT)                                                    \
+  StmtClassInfo[(unsigned)Stmt::CLASS##Class].Name = #CLASS;                   \
   StmtClassInfo[(unsigned)Stmt::CLASS##Class].Size = sizeof(CLASS);
 #include "clang/AST/StmtNodes.inc"
 
   return StmtClassInfo[E];
 }
 
-void *Stmt::operator new(size_t bytes, const ASTContext& C,
+void *Stmt::operator new(size_t bytes, const ASTContext &C,
                          unsigned alignment) {
   return ::operator new(bytes, C, alignment);
 }
 
 const char *Stmt::getStmtClassName() const {
-  return getStmtInfoTableEntry((StmtClass) StmtBits.sClass).Name;
+  return getStmtInfoTableEntry((StmtClass)StmtBits.sClass).Name;
 }
 
 // Check that no statement / expression class is polymorphic. LLVM style RTTI
 // should be used instead. If absolutely needed an exception can still be added
 // here by defining the appropriate macro (but please don't do this).
-#define STMT(CLASS, PARENT) \
-  static_assert(!std::is_polymorphic<CLASS>::value, \
+#define STMT(CLASS, PARENT)                                                    \
+  static_assert(!std::is_polymorphic<CLASS>::value,                            \
                 #CLASS " should not be polymorphic!");
 #include "clang/AST/StmtNodes.inc"
 
@@ -112,33 +112,33 @@ void Stmt::PrintStats() {
 
   unsigned sum = 0;
   llvm::errs() << "\n*** Stmt/Expr Stats:\n";
-  for (int i = 0; i != Stmt::lastStmtConstant+1; i++) {
-    if (StmtClassInfo[i].Name == nullptr) continue;
+  for (int i = 0; i != Stmt::lastStmtConstant + 1; i++) {
+    if (StmtClassInfo[i].Name == nullptr)
+      continue;
     sum += StmtClassInfo[i].Counter;
   }
   llvm::errs() << "  " << sum << " stmts/exprs total.\n";
   sum = 0;
-  for (int i = 0; i != Stmt::lastStmtConstant+1; i++) {
-    if (StmtClassInfo[i].Name == nullptr) continue;
-    if (StmtClassInfo[i].Counter == 0) continue;
+  for (int i = 0; i != Stmt::lastStmtConstant + 1; i++) {
+    if (StmtClassInfo[i].Name == nullptr)
+      continue;
+    if (StmtClassInfo[i].Counter == 0)
+      continue;
     llvm::errs() << "    " << StmtClassInfo[i].Counter << " "
                  << StmtClassInfo[i].Name << ", " << StmtClassInfo[i].Size
-                 << " each (" << StmtClassInfo[i].Counter*StmtClassInfo[i].Size
+                 << " each ("
+                 << StmtClassInfo[i].Counter * StmtClassInfo[i].Size
                  << " bytes)\n";
-    sum += StmtClassInfo[i].Counter*StmtClassInfo[i].Size;
+    sum += StmtClassInfo[i].Counter * StmtClassInfo[i].Size;
   }
 
   llvm::errs() << "Total bytes = " << sum << "\n";
 }
 
-void Stmt::addStmtClass(StmtClass s) {
-  ++getStmtInfoTableEntry(s).Counter;
-}
+void Stmt::addStmtClass(StmtClass s) { ++getStmtInfoTableEntry(s).Counter; }
 
 bool Stmt::StatisticsEnabled = false;
-void Stmt::EnableStatistics() {
-  StatisticsEnabled = true;
-}
+void Stmt::EnableStatistics() { StatisticsEnabled = true; }
 
 static std::pair<Stmt::Likelihood, const Attr *>
 getLikelihood(ArrayRef<const Attr *> Attrs) {
@@ -240,39 +240,35 @@ const Stmt *Stmt::stripLabelLikeStatements() const {
 
 namespace {
 
-  struct good {};
-  struct bad {};
+struct good {};
+struct bad {};
 
-  // These silly little functions have to be static inline to suppress
-  // unused warnings, and they have to be defined to suppress other
-  // warnings.
-  static good is_good(good) { return good(); }
+// These silly little functions have to be static inline to suppress
+// unused warnings, and they have to be defined to suppress other
+// warnings.
+static good is_good(good) { return good(); }
 
-  typedef Stmt::child_range children_t();
-  template <class T> good implements_children(children_t T::*) {
-    return good();
-  }
-  LLVM_ATTRIBUTE_UNUSED
-  static bad implements_children(children_t Stmt::*) {
-    return bad();
-  }
+typedef Stmt::child_range children_t();
+template <class T> good implements_children(children_t T::*) { return good(); }
+LLVM_ATTRIBUTE_UNUSED
+static bad implements_children(children_t Stmt::*) { return bad(); }
 
-  typedef SourceLocation getBeginLoc_t() const;
-  template <class T> good implements_getBeginLoc(getBeginLoc_t T::*) {
-    return good();
-  }
-  LLVM_ATTRIBUTE_UNUSED
-  static bad implements_getBeginLoc(getBeginLoc_t Stmt::*) { return bad(); }
+typedef SourceLocation getBeginLoc_t() const;
+template <class T> good implements_getBeginLoc(getBeginLoc_t T::*) {
+  return good();
+}
+LLVM_ATTRIBUTE_UNUSED
+static bad implements_getBeginLoc(getBeginLoc_t Stmt::*) { return bad(); }
 
-  typedef SourceLocation getLocEnd_t() const;
-  template <class T> good implements_getEndLoc(getLocEnd_t T::*) {
-    return good();
-  }
-  LLVM_ATTRIBUTE_UNUSED
-  static bad implements_getEndLoc(getLocEnd_t Stmt::*) { return bad(); }
+typedef SourceLocation getLocEnd_t() const;
+template <class T> good implements_getEndLoc(getLocEnd_t T::*) {
+  return good();
+}
+LLVM_ATTRIBUTE_UNUSED
+static bad implements_getEndLoc(getLocEnd_t Stmt::*) { return bad(); }
 
-#define ASSERT_IMPLEMENTS_children(type) \
-  (void) is_good(implements_children(&type::children))
+#define ASSERT_IMPLEMENTS_children(type)                                       \
+  (void)is_good(implements_children(&type::children))
 #define ASSERT_IMPLEMENTS_getBeginLoc(type)                                    \
   (void)is_good(implements_getBeginLoc(&type::getBeginLoc))
 #define ASSERT_IMPLEMENTS_getEndLoc(type)                                      \
@@ -294,11 +290,12 @@ static inline void check_implementations() {
 
 Stmt::child_range Stmt::children() {
   switch (getStmtClass()) {
-  case Stmt::NoStmtClass: llvm_unreachable("statement without class");
+  case Stmt::NoStmtClass:
+    llvm_unreachable("statement without class");
 #define ABSTRACT_STMT(type)
-#define STMT(type, base) \
-  case Stmt::type##Class: \
-    return static_cast<type*>(this)->children();
+#define STMT(type, base)                                                       \
+  case Stmt::type##Class:                                                      \
+    return static_cast<type *>(this)->children();
 #include "clang/AST/StmtNodes.inc"
   }
   llvm_unreachable("unknown statement kind!");
@@ -310,33 +307,33 @@ Stmt::child_range Stmt::children() {
 // See also Expr.cpp:getExprLoc().
 namespace {
 
-  /// This implementation is used when a class provides a custom
-  /// implementation of getSourceRange.
-  template <class S, class T>
-  SourceRange getSourceRangeImpl(const Stmt *stmt,
-                                 SourceRange (T::*v)() const) {
-    return static_cast<const S*>(stmt)->getSourceRange();
-  }
+/// This implementation is used when a class provides a custom
+/// implementation of getSourceRange.
+template <class S, class T>
+SourceRange getSourceRangeImpl(const Stmt *stmt, SourceRange (T::*v)() const) {
+  return static_cast<const S *>(stmt)->getSourceRange();
+}
 
-  /// This implementation is used when a class doesn't provide a custom
-  /// implementation of getSourceRange.  Overload resolution should pick it over
-  /// the implementation above because it's more specialized according to
-  /// function template partial ordering.
-  template <class S>
-  SourceRange getSourceRangeImpl(const Stmt *stmt,
-                                 SourceRange (Stmt::*v)() const) {
-    return SourceRange(static_cast<const S *>(stmt)->getBeginLoc(),
-                       static_cast<const S *>(stmt)->getEndLoc());
-  }
+/// This implementation is used when a class doesn't provide a custom
+/// implementation of getSourceRange.  Overload resolution should pick it over
+/// the implementation above because it's more specialized according to
+/// function template partial ordering.
+template <class S>
+SourceRange getSourceRangeImpl(const Stmt *stmt,
+                               SourceRange (Stmt::*v)() const) {
+  return SourceRange(static_cast<const S *>(stmt)->getBeginLoc(),
+                     static_cast<const S *>(stmt)->getEndLoc());
+}
 
 } // namespace
 
 SourceRange Stmt::getSourceRange() const {
   switch (getStmtClass()) {
-  case Stmt::NoStmtClass: llvm_unreachable("statement without class");
+  case Stmt::NoStmtClass:
+    llvm_unreachable("statement without class");
 #define ABSTRACT_STMT(type)
-#define STMT(type, base) \
-  case Stmt::type##Class: \
+#define STMT(type, base)                                                       \
+  case Stmt::type##Class:                                                      \
     return getSourceRangeImpl<type>(this, &type::getSourceRange);
 #include "clang/AST/StmtNodes.inc"
   }
@@ -345,7 +342,8 @@ SourceRange Stmt::getSourceRange() const {
 
 SourceLocation Stmt::getBeginLoc() const {
   switch (getStmtClass()) {
-  case Stmt::NoStmtClass: llvm_unreachable("statement without class");
+  case Stmt::NoStmtClass:
+    llvm_unreachable("statement without class");
 #define ABSTRACT_STMT(type)
 #define STMT(type, base)                                                       \
   case Stmt::type##Class:                                                      \
@@ -357,7 +355,8 @@ SourceLocation Stmt::getBeginLoc() const {
 
 SourceLocation Stmt::getEndLoc() const {
   switch (getStmtClass()) {
-  case Stmt::NoStmtClass: llvm_unreachable("statement without class");
+  case Stmt::NoStmtClass:
+    llvm_unreachable("statement without class");
 #define ABSTRACT_STMT(type)
 #define STMT(type, base)                                                       \
   case Stmt::type##Class:                                                      \
@@ -430,7 +429,7 @@ const char *LabelStmt::getName() const {
 }
 
 AttributedStmt *AttributedStmt::Create(const ASTContext &C, SourceLocation Loc,
-                                       ArrayRef<const Attr*> Attrs,
+                                       ArrayRef<const Attr *> Attrs,
                                        Stmt *SubStmt) {
   assert(!Attrs.empty() && "Attrs should not be empty");
   void *Mem = C.Allocate(totalSizeToAlloc<const Attr *>(Attrs.size()),
@@ -537,9 +536,7 @@ std::string GCCAsmStmt::getClobber(unsigned i) const {
   return ExtractStringFromGCCAsmStmtComponent(getClobberExpr(i));
 }
 
-Expr *GCCAsmStmt::getOutputExpr(unsigned i) {
-  return cast<Expr>(Exprs[i]);
-}
+Expr *GCCAsmStmt::getOutputExpr(unsigned i) { return cast<Expr>(Exprs[i]); }
 
 /// getOutputConstraint - Return the constraint string for the specified
 /// output operand.  All output constraints are known to be non-empty (either
@@ -582,11 +579,11 @@ void GCCAsmStmt::setOutputsAndInputsAndClobbers(
   unsigned NumExprs = NumOutputs + NumInputs + NumLabels;
 
   C.Deallocate(this->Names);
-  this->Names = new (C) IdentifierInfo*[NumExprs];
+  this->Names = new (C) IdentifierInfo *[NumExprs];
   std::copy(Names, Names + NumExprs, this->Names);
 
   C.Deallocate(this->Exprs);
-  this->Exprs = new (C) Stmt*[NumExprs];
+  this->Exprs = new (C) Stmt *[NumExprs];
   std::copy(Exprs, Exprs + NumExprs, this->Exprs);
 
   unsigned NumConstraints = NumOutputs + NumInputs;
@@ -625,8 +622,9 @@ int GCCAsmStmt::getNamedOperand(StringRef SymbolicName) const {
 /// AnalyzeAsmString - Analyze the asm string of the current asm, decomposing
 /// it into pieces.  If the asm string is erroneous, emit errors and return
 /// true, otherwise return false.
-unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
-                                const ASTContext &C, unsigned &DiagOffs) const {
+unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece> &Pieces,
+                                      const ASTContext &C,
+                                      unsigned &DiagOffs) const {
 
   std::string Str = getAsmString();
   const char *StrStart = Str.data();
@@ -670,10 +668,18 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
 
     char CurChar = *CurPtr++;
     switch (CurChar) {
-    case '$': CurStringPiece += "$$"; continue;
-    case '{': CurStringPiece += (HasVariants ? "$(" : "{"); continue;
-    case '|': CurStringPiece += (HasVariants ? "$|" : "|"); continue;
-    case '}': CurStringPiece += (HasVariants ? "$)" : "}"); continue;
+    case '$':
+      CurStringPiece += "$$";
+      continue;
+    case '{':
+      CurStringPiece += (HasVariants ? "$(" : "{");
+      continue;
+    case '|':
+      CurStringPiece += (HasVariants ? "$|" : "|");
+      continue;
+    case '}':
+      CurStringPiece += (HasVariants ? "$)" : "}");
+      continue;
     case '%':
       break;
     default:
@@ -686,7 +692,7 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
     // Escaped "%" character in asm string.
     if (CurPtr == StrEnd) {
       // % at end of string is invalid (no escape).
-      DiagOffs = CurPtr-StrStart-1;
+      DiagOffs = CurPtr - StrStart - 1;
       return diag::err_asm_invalid_escape;
     }
     // Handle escaped char and continue looping over the asm string.
@@ -719,12 +725,12 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
     // Handle operands that have asmSymbolicName (e.g., %x[foo]) and those that
     // don't (e.g., %x4). 'x' following the '%' is the constraint modifier.
 
-    const char *Begin = CurPtr - 1; // Points to the character following '%'.
+    const char *Begin = CurPtr - 1;  // Points to the character following '%'.
     const char *Percent = Begin - 1; // Points to '%'.
 
     if (isLetter(EscapedChar)) {
       if (CurPtr == StrEnd) { // Premature end.
-        DiagOffs = CurPtr-StrStart-1;
+        DiagOffs = CurPtr - StrStart - 1;
         return diag::err_asm_invalid_escape;
       }
 
@@ -747,12 +753,12 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
 
       --CurPtr;
       while (CurPtr != StrEnd && isDigit(*CurPtr))
-        N = N*10 + ((*CurPtr++)-'0');
+        N = N * 10 + ((*CurPtr++) - '0');
 
       unsigned NumOperands = getNumOutputs() + getNumPlusOperands() +
                              getNumInputs() + getNumLabels();
       if (N >= NumOperands) {
-        DiagOffs = CurPtr-StrStart-1;
+        DiagOffs = CurPtr - StrStart - 1;
         return diag::err_asm_invalid_operand_number;
       }
 
@@ -779,10 +785,10 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
 
     // Handle operands that have asmSymbolicName (e.g., %x[foo]).
     if (EscapedChar == '[') {
-      DiagOffs = CurPtr-StrStart-1;
+      DiagOffs = CurPtr - StrStart - 1;
 
       // Find the ']'.
-      const char *NameEnd = (const char*)memchr(CurPtr, ']', StrEnd-CurPtr);
+      const char *NameEnd = (const char *)memchr(CurPtr, ']', StrEnd - CurPtr);
       if (NameEnd == nullptr)
         return diag::err_asm_unterminated_symbolic_operand_name;
       if (NameEnd == CurPtr)
@@ -793,7 +799,7 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
       int N = getNamedOperand(SymbolicName);
       if (N == -1) {
         // Verify that an operand with that name exists.
-        DiagOffs = CurPtr-StrStart;
+        DiagOffs = CurPtr - StrStart;
         return diag::err_asm_unknown_symbolic_operand_name;
       }
 
@@ -817,11 +823,11 @@ unsigned GCCAsmStmt::AnalyzeAsmString(SmallVectorImpl<AsmStringPiece>&Pieces,
 
       Pieces.emplace_back(N, std::move(Str), BeginLoc, EndLoc);
 
-      CurPtr = NameEnd+1;
+      CurPtr = NameEnd + 1;
       continue;
     }
 
-    DiagOffs = CurPtr-StrStart-1;
+    DiagOffs = CurPtr - StrStart - 1;
     return diag::err_asm_invalid_escape;
   }
 }
@@ -874,17 +880,13 @@ std::string MSAsmStmt::generateAsmString(const ASTContext &C) const {
   return MSAsmString;
 }
 
-Expr *MSAsmStmt::getOutputExpr(unsigned i) {
-  return cast<Expr>(Exprs[i]);
-}
+Expr *MSAsmStmt::getOutputExpr(unsigned i) { return cast<Expr>(Exprs[i]); }
 
 Expr *MSAsmStmt::getInputExpr(unsigned i) {
   return cast<Expr>(Exprs[i + NumOutputs]);
 }
 
-void MSAsmStmt::setInputExpr(unsigned i, Expr *E) {
-  Exprs[i + NumOutputs] = E;
-}
+void MSAsmStmt::setInputExpr(unsigned i, Expr *E) { Exprs[i + NumOutputs] = E; }
 
 //===----------------------------------------------------------------------===//
 // Constructors
@@ -901,10 +903,10 @@ GCCAsmStmt::GCCAsmStmt(const ASTContext &C, SourceLocation asmloc,
       RParenLoc(rparenloc), AsmStr(asmstr), NumLabels(numlabels) {
   unsigned NumExprs = NumOutputs + NumInputs + NumLabels;
 
-  Names = new (C) IdentifierInfo*[NumExprs];
+  Names = new (C) IdentifierInfo *[NumExprs];
   std::copy(names, names + NumExprs, Names);
 
-  Exprs = new (C) Stmt*[NumExprs];
+  Exprs = new (C) Stmt *[NumExprs];
   std::copy(exprs, exprs + NumExprs, Exprs);
 
   unsigned NumConstraints = NumOutputs + NumInputs;
@@ -918,13 +920,12 @@ GCCAsmStmt::GCCAsmStmt(const ASTContext &C, SourceLocation asmloc,
 MSAsmStmt::MSAsmStmt(const ASTContext &C, SourceLocation asmloc,
                      SourceLocation lbraceloc, bool issimple, bool isvolatile,
                      ArrayRef<Token> asmtoks, unsigned numoutputs,
-                     unsigned numinputs,
-                     ArrayRef<StringRef> constraints, ArrayRef<Expr*> exprs,
-                     StringRef asmstr, ArrayRef<StringRef> clobbers,
-                     SourceLocation endloc)
+                     unsigned numinputs, ArrayRef<StringRef> constraints,
+                     ArrayRef<Expr *> exprs, StringRef asmstr,
+                     ArrayRef<StringRef> clobbers, SourceLocation endloc)
     : AsmStmt(MSAsmStmtClass, asmloc, issimple, isvolatile, numoutputs,
-              numinputs, clobbers.size()), LBraceLoc(lbraceloc),
-              EndLoc(endloc), NumAsmToks(asmtoks.size()) {
+              numinputs, clobbers.size()),
+      LBraceLoc(lbraceloc), EndLoc(endloc), NumAsmToks(asmtoks.size()) {
   initialize(C, asmstr, asmtoks, constraints, exprs, clobbers);
 }
 
@@ -935,7 +936,7 @@ static StringRef copyIntoContext(const ASTContext &C, StringRef str) {
 void MSAsmStmt::initialize(const ASTContext &C, StringRef asmstr,
                            ArrayRef<Token> asmtoks,
                            ArrayRef<StringRef> constraints,
-                           ArrayRef<Expr*> exprs,
+                           ArrayRef<Expr *> exprs,
                            ArrayRef<StringRef> clobbers) {
   assert(NumAsmToks == asmtoks.size());
   assert(NumClobbers == clobbers.size());
@@ -945,24 +946,22 @@ void MSAsmStmt::initialize(const ASTContext &C, StringRef asmstr,
 
   AsmStr = copyIntoContext(C, asmstr);
 
-  Exprs = new (C) Stmt*[exprs.size()];
+  Exprs = new (C) Stmt *[exprs.size()];
   llvm::copy(exprs, Exprs);
 
   AsmToks = new (C) Token[asmtoks.size()];
   llvm::copy(asmtoks, AsmToks);
 
   Constraints = new (C) StringRef[exprs.size()];
-  std::transform(constraints.begin(), constraints.end(), Constraints,
-                 [&](StringRef Constraint) {
-                   return copyIntoContext(C, Constraint);
-                 });
+  std::transform(
+      constraints.begin(), constraints.end(), Constraints,
+      [&](StringRef Constraint) { return copyIntoContext(C, Constraint); });
 
   Clobbers = new (C) StringRef[NumClobbers];
   // FIXME: Avoid the allocation/copy if at all possible.
-  std::transform(clobbers.begin(), clobbers.end(), Clobbers,
-                 [&](StringRef Clobber) {
-                   return copyIntoContext(C, Clobber);
-                 });
+  std::transform(
+      clobbers.begin(), clobbers.end(), Clobbers,
+      [&](StringRef Clobber) { return copyIntoContext(C, Clobber); });
 }
 
 IfStmt::IfStmt(const ASTContext &Ctx, SourceLocation IL, IfStatementKind Kind,
@@ -1065,8 +1064,7 @@ IfStmt::getNondiscardedCase(const ASTContext &Ctx) const {
 ForStmt::ForStmt(const ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar,
                  Expr *Inc, Stmt *Body, SourceLocation FL, SourceLocation LP,
                  SourceLocation RP)
-  : Stmt(ForStmtClass), LParenLoc(LP), RParenLoc(RP)
-{
+    : Stmt(ForStmtClass), LParenLoc(LP), RParenLoc(RP) {
   SubExprs[INIT] = Init;
   setConditionVariable(C, condVar);
   SubExprs[COND] = Cond;
@@ -1090,8 +1088,8 @@ void ForStmt::setConditionVariable(const ASTContext &C, VarDecl *V) {
   }
 
   SourceRange VarRange = V->getSourceRange();
-  SubExprs[CONDVAR] = new (C) DeclStmt(DeclGroupRef(V), VarRange.getBegin(),
-                                       VarRange.getEnd());
+  SubExprs[CONDVAR] =
+      new (C) DeclStmt(DeclGroupRef(V), VarRange.getBegin(), VarRange.getEnd());
 }
 
 SwitchStmt::SwitchStmt(const ASTContext &Ctx, Stmt *Init, VarDecl *Var,
@@ -1284,41 +1282,41 @@ CaseStmt *CaseStmt::CreateEmpty(const ASTContext &Ctx,
 SEHTryStmt::SEHTryStmt(bool IsCXXTry, SourceLocation TryLoc, Stmt *TryBlock,
                        Stmt *Handler)
     : Stmt(SEHTryStmtClass), IsCXXTry(IsCXXTry), TryLoc(TryLoc) {
-  Children[TRY]     = TryBlock;
+  Children[TRY] = TryBlock;
   Children[HANDLER] = Handler;
 }
 
-SEHTryStmt* SEHTryStmt::Create(const ASTContext &C, bool IsCXXTry,
+SEHTryStmt *SEHTryStmt::Create(const ASTContext &C, bool IsCXXTry,
                                SourceLocation TryLoc, Stmt *TryBlock,
                                Stmt *Handler) {
-  return new(C) SEHTryStmt(IsCXXTry,TryLoc,TryBlock,Handler);
+  return new (C) SEHTryStmt(IsCXXTry, TryLoc, TryBlock, Handler);
 }
 
-SEHExceptStmt* SEHTryStmt::getExceptHandler() const {
+SEHExceptStmt *SEHTryStmt::getExceptHandler() const {
   return dyn_cast<SEHExceptStmt>(getHandler());
 }
 
-SEHFinallyStmt* SEHTryStmt::getFinallyHandler() const {
+SEHFinallyStmt *SEHTryStmt::getFinallyHandler() const {
   return dyn_cast<SEHFinallyStmt>(getHandler());
 }
 
 SEHExceptStmt::SEHExceptStmt(SourceLocation Loc, Expr *FilterExpr, Stmt *Block)
     : Stmt(SEHExceptStmtClass), Loc(Loc) {
   Children[FILTER_EXPR] = FilterExpr;
-  Children[BLOCK]       = Block;
+  Children[BLOCK] = Block;
 }
 
-SEHExceptStmt* SEHExceptStmt::Create(const ASTContext &C, SourceLocation Loc,
+SEHExceptStmt *SEHExceptStmt::Create(const ASTContext &C, SourceLocation Loc,
                                      Expr *FilterExpr, Stmt *Block) {
-  return new(C) SEHExceptStmt(Loc,FilterExpr,Block);
+  return new (C) SEHExceptStmt(Loc, FilterExpr, Block);
 }
 
 SEHFinallyStmt::SEHFinallyStmt(SourceLocation Loc, Stmt *Block)
     : Stmt(SEHFinallyStmtClass), Loc(Loc), Block(Block) {}
 
-SEHFinallyStmt* SEHFinallyStmt::Create(const ASTContext &C, SourceLocation Loc,
+SEHFinallyStmt *SEHFinallyStmt::Create(const ASTContext &C, SourceLocation Loc,
                                        Stmt *Block) {
-  return new(C)SEHFinallyStmt(Loc,Block);
+  return new (C) SEHFinallyStmt(Loc, Block);
 }
 
 CapturedStmt::Capture::Capture(SourceLocation Loc, VariableCaptureKind Kind,
@@ -1359,18 +1357,17 @@ CapturedStmt::Capture *CapturedStmt::getStoredCaptures() const {
   unsigned FirstCaptureOffset = llvm::alignTo(Size, alignof(Capture));
 
   return reinterpret_cast<Capture *>(
-      reinterpret_cast<char *>(const_cast<CapturedStmt *>(this))
-      + FirstCaptureOffset);
+      reinterpret_cast<char *>(const_cast<CapturedStmt *>(this)) +
+      FirstCaptureOffset);
 }
 
 CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
                            ArrayRef<Capture> Captures,
-                           ArrayRef<Expr *> CaptureInits,
-                           CapturedDecl *CD,
+                           ArrayRef<Expr *> CaptureInits, CapturedDecl *CD,
                            RecordDecl *RD)
-  : Stmt(CapturedStmtClass), NumCaptures(Captures.size()),
-    CapDeclAndKind(CD, Kind), TheRecordDecl(RD) {
-  assert( S && "null captured statement");
+    : Stmt(CapturedStmtClass), NumCaptures(Captures.size()),
+      CapDeclAndKind(CD, Kind), TheRecordDecl(RD) {
+  assert(S && "null captured statement");
   assert(CD && "null captured declaration for captured statement");
   assert(RD && "null record declaration for captured statement");
 
@@ -1388,8 +1385,8 @@ CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
 }
 
 CapturedStmt::CapturedStmt(EmptyShell Empty, unsigned NumCaptures)
-  : Stmt(CapturedStmtClass, Empty), NumCaptures(NumCaptures),
-    CapDeclAndKind(nullptr, CR_Default) {
+    : Stmt(CapturedStmtClass, Empty), NumCaptures(NumCaptures),
+      CapDeclAndKind(nullptr, CR_Default) {
   getStoredStmts()[NumCaptures] = nullptr;
 
   // Construct default capture objects.
@@ -1402,8 +1399,7 @@ CapturedStmt *CapturedStmt::Create(const ASTContext &Context, Stmt *S,
                                    CapturedRegionKind Kind,
                                    ArrayRef<Capture> Captures,
                                    ArrayRef<Expr *> CaptureInits,
-                                   CapturedDecl *CD,
-                                   RecordDecl *RD) {
+                                   CapturedDecl *CD, RecordDecl *RD) {
   // The layout is
   //
   // -----------------------------------------------------------
@@ -1482,3 +1478,8 @@ bool CapturedStmt::capturesVariable(const VarDecl *Var) const {
 
   return false;
 }
+
+DeferStmt::DeferStmt(Stmt *DeferredStmt, SourceLocation Loc)
+    : Stmt(DeferStmtClass), DeferredStmt(DeferredStmt), DeferLoc(Loc) {}
+
+DeferStmt::DeferStmt(EmptyShell Empty) : Stmt(DeferStmtClass, Empty) {}

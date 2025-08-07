@@ -2958,6 +2958,9 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
 
     StringRef Lang;
     switch (Opts.DashX.getLanguage()) {
+    case Language::MC:
+      Lang = "mc";
+      break;
     case Language::C:
       Lang = "c";
       break;
@@ -3200,6 +3203,7 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
 
     // Principal languages.
     DashX = llvm::StringSwitch<InputKind>(XValue)
+                .Case("mc", Language::MC)
                 .Case("c", Language::C)
                 .Case("cl", Language::OpenCL)
                 .Case("clcpp", Language::OpenCLCXX)
@@ -3641,6 +3645,9 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
   case Language::CIR:
     llvm_unreachable("should not parse language flags for this input");
 
+  case Language::MC:
+    return S.getLanguage() == Language::C ||
+      S.getLanguage() == Language::MC;
   case Language::C:
   case Language::ObjC:
     return S.getLanguage() == Language::C;
@@ -3680,6 +3687,8 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
 /// Get language name for given input kind.
 static StringRef GetInputKindName(InputKind IK) {
   switch (IK.getLanguage()) {
+  case Language::MC:
+    return "MC";
   case Language::C:
     return "C";
   case Language::ObjC:
@@ -4011,6 +4020,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
 
   // FIXME: Cleanup per-file based stuff.
   LangStandard::Kind LangStd = LangStandard::lang_unspecified;
+
+
   if (const Arg *A = Args.getLastArg(OPT_std_EQ)) {
     LangStd = LangStandard::getLangKind(A->getValue());
     if (LangStd == LangStandard::lang_unspecified) {

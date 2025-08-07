@@ -77,6 +77,9 @@ namespace types {
   /// input can be processed by -fminimize-whitespace.
   bool isDerivedFromC(ID Id);
 
+  /// IsMC - Is this an MC source file
+  bool isMC(ID Id);
+
   /// isCXX - Is this a "C++" input (C++ and Obj-C++ sources and headers).
   bool isCXX(ID Id);
 

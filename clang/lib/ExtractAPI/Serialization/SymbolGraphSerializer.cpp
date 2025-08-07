@@ -198,6 +198,8 @@ std::optional<Array> serializeAvailability(const AvailabilityInfo &Avail) {
 /// Get the language name string for interface language references.
 StringRef getLanguageName(Language Lang) {
   switch (Lang) {
+  case Language::MC:
+    return "mc";
   case Language::C:
     return "c";
   case Language::ObjC:

@@ -17,6 +17,8 @@ StringRef clang::languageToString(Language L) {
   switch (L) {
   case Language::Unknown:
     return "Unknown";
+  case Language::MC:
+    return "MC";
   case Language::Asm:
     return "Asm";
   case Language::LLVM_IR:
@@ -54,8 +56,9 @@ const LangStandard &LangStandard::getLangStandardForKind(Kind K) {
   switch (K) {
   case lang_unspecified:
     llvm::report_fatal_error("getLangStandardForKind() on unspecified kind");
-#define LANGSTANDARD(id, name, lang, desc, features) \
-    case lang_##id: return Lang_##id;
+#define LANGSTANDARD(id, name, lang, desc, features)                           \
+  case lang_##id:                                                              \
+    return Lang_##id;
 #include "clang/Basic/LangStandards.def"
   }
   llvm_unreachable("Invalid language kind!");
@@ -99,6 +102,8 @@ LangStandard::Kind clang::getDefaultLanguageStandard(clang::Language Lang,
     return LangStandard::lang_opencl12;
   case Language::OpenCLCXX:
     return LangStandard::lang_openclcpp10;
+  case Language::MC:
+    return LangStandard::lang_mc;
   case Language::Asm:
   case Language::C:
     // The PS4 uses C99 as the default C standard.
